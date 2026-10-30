@@ -799,7 +799,10 @@ create_link() {
 }
 
 remove_link() {
-    local uri=$1 path=${LINK_PATH[$uri]:-} target=${LINK_TARGET[$uri]:-} rc=0
+    # Two statements on purpose: bash expands every word of a single `local`
+    # before assigning any of them, so `uri` is not yet visible on that line.
+    local uri=$1 rc=0
+    local path=${LINK_PATH[$uri]:-} target=${LINK_TARGET[$uri]:-}
     [[ -n $path ]] || return 0
     safe_remove_link "$path" "$target" || rc=1
     unset -v "LINK_PATH[$uri]" "LINK_TARGET[$uri]"
@@ -931,7 +934,9 @@ detach_device() {
 # Keep an already-published device honest: our link must still be ours, and
 # the mount behind it must still answer.
 verify_linked_device() {
-    local uri=$1 name=$2 path=${LINK_PATH[$uri]:-} target=${LINK_TARGET[$uri]:-}
+    local uri=$1 name=$2
+    # Second statement: see remove_link() — $uri is not visible on its own line.
+    local path=${LINK_PATH[$uri]:-} target=${LINK_TARGET[$uri]:-}
     local actual fails
 
     if [[ ! -L $path ]]; then
