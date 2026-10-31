@@ -130,16 +130,19 @@
             mediaDir = lib.mkOption {
               type = lib.types.path;
               default = "/media";
-              description = "Where the phone symlinks are published.";
-            };
-
-            manageMediaDir = lib.mkOption {
-              type = lib.types.bool;
-              default = true;
               description = ''
-                Create {option}`services.phone-automounter.mediaDir` as
-                `root:users` with mode `0775`, so the user service can write to
-                it.  Turn this off if you manage that directory yourself.
+                Where the phone symlinks are published.  This module does not
+                create the directory: it has to exist and be writable by the
+                user running the service, which on a stock NixOS `/media` is
+                not.  Declare it yourself, e.g.
+
+                ```nix
+                systemd.tmpfiles.rules = [ "d /media 0775 root users -" ];
+                ```
+
+                Left to the user on purpose — `/media` is shared ground
+                (`services.udisks2.mountOnMedia` also declares it), and
+                systemd-tmpfiles keeps only the first rule it sees for a path.
               '';
             };
 
@@ -201,10 +204,8 @@
             # fuse daemon: without gvfsd-fuse a phone has no filesystem path.
             services.gvfs.enable = true;
 
-            systemd.tmpfiles.rules = lib.mkIf cfg.manageMediaDir [
-              "d ${cfg.mediaDir} 0775 root users -"
-            ];
-
+            # mediaDir is deliberately not created here — see the option's
+            # description.
             systemd.user.services.phone-automounter = {
               description = "udiskie-style automounting for phones (gio/gvfs)";
               documentation = [ "https://github.com/pillowbanana/phone-automounter" ];

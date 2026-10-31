@@ -120,12 +120,21 @@ files to copy or import. It exposes:
   imports = [ inputs.phone-automounter.nixosModules.default ];
 
   services.phone-automounter.enable = true;
+
+  # /media is root-only on a stock NixOS and the service runs as your user,
+  # so the directory is yours to declare:
+  systemd.tmpfiles.rules = [ "d /media 0775 root users -" ];
 }
 ```
 
-That installs the `phone-automounter` command, enables `services.gvfs`, makes
-`/media` group-writable (`root:users`, mode `0775`) and starts a **systemd user
-service** for every logged-in user.
+That installs the `phone-automounter` command, enables `services.gvfs` and
+starts a **systemd user service** for every logged-in user.
+
+The module never creates or chmods `mediaDir` itself. `/media` is shared ground
+— `services.udisks2.mountOnMedia` declares it too, and systemd-tmpfiles keeps
+only the **first** rule it sees for a given path and ignores the rest — so a
+rule from here would silently race yours. Declare it once, yourself, and you
+know exactly what you get.
 
 It is a user service on purpose: gvfs mounts live inside a user's session
 (`$XDG_RUNTIME_DIR/gvfs`) and are not visible to root, so a system-wide daemon
@@ -142,8 +151,7 @@ Options, all optional:
 | --- | --- | --- |
 | `services.phone-automounter.enable` | `false` | Enable the user service. |
 | `.package` | this flake's package | Package providing the binary. |
-| `.mediaDir` | `"/media"` | Where the phone symlinks go. |
-| `.manageMediaDir` | `true` | Create `mediaDir` as `root:users` `0775`. Turn off if you manage it yourself. |
+| `.mediaDir` | `"/media"` | Where the phone symlinks go. Must exist and be writable by you — the module does not create it. |
 | `.schemes` | `[ "mtp" "gphoto2" "afc" ]` | gvfs schemes treated as a phone. |
 | `.resyncInterval` | `30` | Watchdog seconds; `0` = events only. |
 | `.notify` | `true` | Desktop notifications on mount/unmount. |
