@@ -90,6 +90,19 @@ create — including udiskie's real USB mount directories — is left alone.
 
 ## Install
 
+Everything Nix lives in a single `flake.nix` at the repo root — the package, the
+NixOS module and the dev shell are all defined there, there are no other `.nix`
+files to copy or import. It exposes:
+
+| Output | What it is |
+| --- | --- |
+| `nixosModules.default` | the `services.phone-automounter` user service |
+| `packages.default` | the wrapped `phone-automounter` binary |
+| `overlays.default` | adds `pkgs.phone-automounter` |
+| `apps.default` | the `nix run` entry point |
+| `devShells.default` | `nix develop` |
+| `checks.<system>` | `tests.sh` and shellcheck, run by `nix flake check` |
+
 ### NixOS flake, as a service (recommended)
 
 ```nix
@@ -161,7 +174,9 @@ systemd.tmpfiles.rules = [ "d /media 0775 root users -" ];
 
 or point it somewhere else with `--media-dir ~/phones`.
 
-Running it yourself, without the module:
+Running it yourself, without the module (`pkgs.phone-automounter` here comes
+from the overlay above — use
+`inputs.phone-automounter.packages.${pkgs.system}.default` if you skipped it):
 
 ```nix
 systemd.user.services.phone-automounter = {
@@ -180,6 +195,14 @@ the unit under `systemd.user.services`.
 ```bash
 nix run github:pillowbanana/phone-automounter             # run the daemon
 nix run github:pillowbanana/phone-automounter -- --once   # one pass, then exit
+```
+
+On a non-NixOS machine with Nix and flakes enabled, the same package can go
+straight into your profile — gvfs and its fuse daemon then have to come from
+the distro:
+
+```bash
+nix profile install github:pillowbanana/phone-automounter
 ```
 
 ### Without Nix
@@ -263,9 +286,14 @@ candidate.
 ```bash
 nix develop          # bash, shellcheck, shfmt, glib, gvfs
 ./tests.sh           # 129 assertions, no hardware needed
+nix build            # build the package — the test suite runs as its checkPhase
 nix flake check      # the test suite + shellcheck, in a sandbox
-nix fmt              # format the Nix files
+nix fmt              # format flake.nix with nixfmt
 ```
+
+`nix flake check` fails on shellcheck warnings and errors; style and info notes
+are advisory. Two warnings are excluded as false positives, both documented in
+`flake.nix`.
 
 `tests.sh` builds a throwaway sandbox under `$TMPDIR` with a fake gvfs root
 full of fake "phone files", stubs out everything that would talk to real
